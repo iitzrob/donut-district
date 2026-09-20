@@ -39,16 +39,16 @@ module.exports = {
 
 > Open this if you want to sponsor a giveaway.`,
 
-  staffRoleId: '1534029589569998888',
+  staffRoleId: '1551080886689075230',
 
   // Role that always keeps SendMessages in a support ticket, even after
   // it's claimed and every other role gets locked out. This role is also
   // granted access to every new ticket when it's created.
-  alwaysCanTypeRoleId: '1534029586231332986',
+  alwaysCanTypeRoleId: '1551079473049374744',
 
   // Channel where a copy of every ticket's transcript gets posted when it's
   // closed (in addition to DMing it to whoever opened the ticket).
-  ticketLogChannelId: '1534030311992721478',
+  ticketLogChannelId: '1551123713292767252',
 
   // Per-ticket-type settings. Keys must match the `id` values in
   // data/ticketCategories.js. Each one can go to its own category channel
