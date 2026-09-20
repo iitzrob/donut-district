@@ -19,6 +19,7 @@ const { runApplicationFlow } = require('../utils/applicationFlow');
 const { buildDecisionRow } = require('../utils/applicationDecision');
 const { createPrivateChannel } = require('../utils/ticketCreation');
 const { isStaff } = require('../utils/permissions');
+const { noClaimRow } = require('../utils/ticketActions');
 const { bold } = require('../utils/textStyle');
 
 async function handleApplicationSelect(interaction) {
@@ -307,18 +308,7 @@ async function handleApplicationOpenTicket(interaction) {
     .setColor(0x2b2d31);
 
   // No Claim button here on purpose — application ticket, not a support ticket.
-  const closeRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('ticket_rename_btn')
-      .setLabel('Rename Ticket')
-      .setEmoji('✏️')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('ticket_close_btn')
-      .setLabel('Close Ticket')
-      .setEmoji('🔒')
-      .setStyle(ButtonStyle.Danger)
-  );
+  const closeRow = noClaimRow();
 
   const pings = [`<@${meta.openerId}>`];
   if (appCfg.pingRoleId) pings.push(`<@&${appCfg.pingRoleId}>`);
