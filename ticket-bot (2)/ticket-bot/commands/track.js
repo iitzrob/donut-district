@@ -17,10 +17,12 @@ const MIN_DURATION_MS = 60 * 1000;
 // Minecraft names are letters/numbers/underscores; Bedrock names start with a dot.
 const IGN_PATTERN = /^\.?[A-Za-z0-9_]{1,32}$/;
 
-// /track payment user:<payer> amount:<amount> time:<time to pay>
-//   [receiver:<who gets paid, default you>] [payer_ign] [receiver_ign]
+// /track payment payer_ign:<name> receiver_ign:<name> amount:<amount> time:<time to pay>
+//   [user:<payer's Discord account>] [receiver:<receiver's Discord account>]
 // /track test name:<DonutSMP username>
 //
+// The in-game names are what get tracked. The Discord users are optional —
+// they're only used to ping/show people in the tracker message.
 // The bot runs the Donut Stats bot's !stats command for both players now and
 // again every so often — see utils/donutStats.js and handlers/paymentHandlers.js.
 module.exports = {
@@ -32,8 +34,19 @@ module.exports = {
       sub
         .setName('payment')
         .setDescription('Track a DonutSMP payment by watching the payer and receiver balances')
-        .addUserOption((opt) =>
-          opt.setName('user').setDescription('The person who is paying').setRequired(true)
+        .addStringOption((opt) =>
+          opt
+            .setName('payer_ign')
+            .setDescription('DonutSMP username of the person who is paying')
+            .setRequired(true)
+            .setMaxLength(32)
+        )
+        .addStringOption((opt) =>
+          opt
+            .setName('receiver_ign')
+            .setDescription('DonutSMP username of the person receiving the payment')
+            .setRequired(true)
+            .setMaxLength(32)
         )
         .addStringOption((opt) =>
           opt
@@ -48,19 +61,10 @@ module.exports = {
             .setRequired(true)
         )
         .addUserOption((opt) =>
-          opt.setName('receiver').setDescription('Who is receiving the payment (default: you)')
+          opt.setName('user').setDescription('Optional: the payer\'s Discord account (gets pinged)')
         )
-        .addStringOption((opt) =>
-          opt
-            .setName('payer_ign')
-            .setDescription("Payer's DonutSMP username (default: their server nickname)")
-            .setMaxLength(32)
-        )
-        .addStringOption((opt) =>
-          opt
-            .setName('receiver_ign')
-            .setDescription("Receiver's DonutSMP username (default: their server nickname)")
-            .setMaxLength(32)
+        .addUserOption((opt) =>
+          opt.setName('receiver').setDescription('Optional: the receiver\'s Discord account')
         )
     )
     .addSubcommand((sub) =>
@@ -114,15 +118,34 @@ async function runTest(interaction) {
 }
 
 async function startPayment(interaction) {
-  const payer = interaction.options.getUser('user');
-  const receiver = interaction.options.getUser('receiver') || interaction.user;
+  const payerIgn = (interaction.options.getString('payer_ign') || '').trim();
+  const receiverIgn = (interaction.options.getString('receiver_ign') || '').trim();
+  const payer = interaction.options.getUser('user'); // optional
+  const receiver = interaction.options.getUser('receiver'); // optional
   const amount = payments.parseAmount(interaction.options.getString('amount'));
   const durationMs = payments.parseDuration(interaction.options.getString('time'));
 
-  if (payer.bot || receiver.bot) {
+  for (const [option, ign] of [
+    ['payer_ign', payerIgn],
+    ['receiver_ign', receiverIgn],
+  ]) {
+    if (!IGN_PATTERN.test(ign)) {
+      return interaction.reply({
+        content: `\`${option}\` should be a DonutSMP username (letters, numbers and underscores).`,
+        ephemeral: true,
+      });
+    }
+  }
+  if (payerIgn.toLowerCase() === receiverIgn.toLowerCase()) {
+    return interaction.reply({
+      content: 'The payer and the receiver have the same DonutSMP username.',
+      ephemeral: true,
+    });
+  }
+  if ((payer && payer.bot) || (receiver && receiver.bot)) {
     return interaction.reply({ content: "Bots can't be part of a payment.", ephemeral: true });
   }
-  if (payer.id === receiver.id) {
+  if (payer && receiver && payer.id === receiver.id) {
     return interaction.reply({
       content: "The payer and the receiver can't be the same person.",
       ephemeral: true,
@@ -157,22 +180,6 @@ async function startPayment(interaction) {
   // Looking both players up takes a few seconds, so acknowledge first.
   await interaction.deferReply({ ephemeral: true });
 
-  const payerIgn = await resolveIgn(interaction, payer, interaction.options.getString('payer_ign'));
-  const receiverIgn = await resolveIgn(interaction, receiver, interaction.options.getString('receiver_ign'));
-  for (const [option, ign] of [
-    ['payer_ign', payerIgn],
-    ['receiver_ign', receiverIgn],
-  ]) {
-    if (!IGN_PATTERN.test(ign)) {
-      return interaction.editReply(
-        `"${ign}" doesn't look like a DonutSMP username. Set it yourself with the \`${option}\` option.`
-      );
-    }
-  }
-  if (payerIgn.toLowerCase() === receiverIgn.toLowerCase()) {
-    return interaction.editReply('The payer and the receiver have the same DonutSMP username.');
-  }
-
   // Starting balances. If either lookup fails there's nothing to compare
   // against later, so stop here and say why.
   let payerStats;
@@ -199,8 +206,8 @@ async function startPayment(interaction) {
     channelId: channel.id,
     messageId: null,
     createdBy: interaction.user.id,
-    payerDiscordId: payer.id,
-    receiverDiscordId: receiver.id,
+    payerDiscordId: payer ? payer.id : null,
+    receiverDiscordId: receiver ? receiver.id : null,
     payerIgn,
     receiverIgn,
     amount,
@@ -216,10 +223,10 @@ async function startPayment(interaction) {
   let message;
   try {
     message = await channel.send({
-      content: `<@${payer.id}>`,
+      content: payer ? `<@${payer.id}>` : undefined,
       embeds: [buildEmbed(payment)],
       components: buildButtons(payment),
-      allowedMentions: { users: [payer.id] },
+      allowedMentions: { users: payer ? [payer.id] : [] },
     });
   } catch (err) {
     payments.remove(payment.id);
@@ -241,14 +248,6 @@ async function startPayment(interaction) {
   await interaction.editReply(reply);
 }
 
-// Uses the name typed into the command if there is one; otherwise the
-// person's server nickname (most servers keep that as their in-game name).
-async function resolveIgn(interaction, user, override) {
-  if (override && override.trim()) return override.trim();
-  const member = await interaction.guild.members.fetch(user.id).catch(() => null);
-  return (member ? member.displayName : user.username).trim();
-}
-
 function statsErrorMessage(err, ign, option) {
   const command = `${settings.statsCommand} ${ign}`;
   switch (err.code) {
@@ -261,7 +260,7 @@ function statsErrorMessage(err, ign, option) {
     case 'UNPARSEABLE':
       return `The Donut Stats bot answered \`${command}\` but I couldn't find the money in its reply.`;
     case 'NOT_FOUND':
-      return `Donut Stats couldn't find a player called \`${ign}\`. Set their in-game name with the \`${option}\` option.`;
+      return `Donut Stats couldn't find a player called \`${ign}\`. Check the spelling of the \`${option}\` option.`;
     default:
       console.error('[payments] Donut Stats lookup failed:', err);
       return "Something went wrong while asking Donut Stats. Try again in a moment.";
