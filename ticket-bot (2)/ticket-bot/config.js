@@ -152,6 +152,28 @@ module.exports = {
     xpMax: 40,
     cooldownSeconds: 60,
     xpChannelIds: [],
+
+    // Role rewards: paste the role ID for each level (leave '' to skip a
+    // level). On a level-up the member gets the highest reward role they've
+    // reached. The bot needs the Manage Roles permission, and its own role
+    // must sit ABOVE these roles in Server Settings > Roles.
+    roleRewards: {
+      1: '1551184060905299989',
+      3: '1551184099362734080',
+      5: '1551184132057337917',
+      10: '1551184164596879380',
+      15: '1551184199749345361',
+      20: '1551184231965794384',
+      25: '1551184288819712100',
+      30: '1551184331572117625',
+      35: '1551184969945055273',
+      40: '1551184387993894992',
+      45: '1551184437239226368',
+      50: '1551184437239226368',
+    },
+    // false = keep only the highest reward role (lower ones get removed).
+    // true = keep every reward role they've earned.
+    stackRoleRewards: true,
   },
 
   // Timezone for the weekly points reset (Monday 1:00 AM).
