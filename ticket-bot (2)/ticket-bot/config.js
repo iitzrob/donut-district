@@ -186,6 +186,54 @@ module.exports = {
     ignoreRoleIds: [],
   },
 
+  // ---- Payment tracker (/track payment) ----
+  // The bot finds out how much money the payer and the receiver have by
+  // running the Donut Stats bot's !stats command (https://www.donutstats.net/)
+  // and reading its reply. It does that when the payment is started and again
+  // every pollSeconds, until the amount has moved or the time runs out.
+  //
+  // Setup: this bot has to be in the server where the Donut Stats bot is, and
+  // needs View Channel, Send Messages and Read Message History in the channel
+  // below (plus Manage Messages if you want it to clean up after itself).
+  // Use a channel nobody else chats in — the bot posts "!stats <name>" there.
+  // Run /track test to check the setup.
+  //
+  // - statsChannelId: the channel (in the Donut Stats server) where the bot
+  //   runs the command. Right-click the channel > Copy Channel ID.
+  // - statsBotId: the Donut Stats bot's user id. Optional, but stops the bot
+  //   from mistaking some other bot's message for the answer.
+  // - statsCommand: what gets typed before the name.
+  // - replyTimeoutSeconds: how long to wait for the Donut Stats bot to answer.
+  // - deleteMessages: true = the bot deletes its "!stats" message and the
+  //   answer afterwards (only works where it has Manage Messages).
+  // - moneyRegex: leave '' to auto-detect "Money: ..." in the reply. If
+  //   /track test can't read the reply, put your own pattern here as a string.
+  //   Group 1 must be the number and group 2 the optional k/m/b suffix.
+  // - staffOnly: true = only staff can run /track payment.
+  // - pollSeconds: how often balances are re-checked (minimum 20). Each check
+  //   is two !stats commands per payment, so keep this reasonable.
+  // - maxActive: most payments that can be tracked at the same time.
+  // - maxDurationDays: longest "time to pay" someone can set.
+  // - requireBoth: true = the payer's money must go DOWN and the receiver's
+  //   money must go UP by the amount before it counts as paid (safest — one
+  //   side alone can move for other reasons, like /sell or /shop).
+  //   false = either side moving by the amount is enough.
+  // There's also a Mark as Paid button on every tracker for the times the
+  // balances can't prove it (e.g. the payer was earning money at the same time).
+  payments: {
+    statsChannelId: '',
+    statsBotId: '',
+    statsCommand: '!stats',
+    replyTimeoutSeconds: 20,
+    deleteMessages: true,
+    moneyRegex: '',
+    staffOnly: true,
+    pollSeconds: 60,
+    maxActive: 10,
+    maxDurationDays: 7,
+    requireBoth: true,
+  },
+
   // Timezone for the weekly points reset (Monday 1:00 AM).
   timezone: 'Europe/Berlin',
 };
