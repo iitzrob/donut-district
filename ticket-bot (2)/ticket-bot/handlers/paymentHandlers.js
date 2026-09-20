@@ -35,6 +35,17 @@ const ERROR_NOTES = {
 
 const ts = (ms, style) => `<t:${Math.floor(ms / 1000)}:${style}>`;
 
+// The Discord user is optional — a payment is really about the two in-game names.
+// "@user\n`Name`" when there's a Discord user, otherwise just "`Name`".
+function personLine(discordId, ign) {
+  return discordId ? `<@${discordId}>\n\`${ign}\`` : `\`${ign}\``;
+}
+
+// How a person is named in a channel message: their mention, or the in-game name.
+function personName(discordId, ign) {
+  return discordId ? `<@${discordId}>` : `**${ign}**`;
+}
+
 // ---- Message (embed + buttons) ----
 
 function buildEmbed(p) {
@@ -44,8 +55,8 @@ function buildEmbed(p) {
     .setColor(COLORS[p.status] || COLORS.active)
     .setTitle('Payment Tracker')
     .addFields(
-      { name: 'Payer', value: `<@${p.payerDiscordId}>\n\`${p.payerIgn}\``, inline: true },
-      { name: 'Receiver', value: `<@${p.receiverDiscordId}>\n\`${p.receiverIgn}\``, inline: true },
+      { name: 'Payer', value: personLine(p.payerDiscordId, p.payerIgn), inline: true },
+      { name: 'Receiver', value: personLine(p.receiverDiscordId, p.receiverIgn), inline: true },
       { name: 'Amount', value: payments.moneyWithShort(p.amount), inline: true },
       { name: 'Pay by', value: `${ts(p.deadline, 'f')} (${ts(p.deadline, 'R')})`, inline: false },
       {
@@ -220,17 +231,24 @@ async function finish(p, status, measured = {}, resolvedBy = null) {
   });
   await refreshMessage(updated);
 
-  const who = [updated.payerDiscordId, updated.receiverDiscordId];
+  // Pings the Discord users involved plus whoever started the tracker.
+  const who = [...new Set([updated.payerDiscordId, updated.receiverDiscordId, updated.createdBy].filter(Boolean))];
+  const payer = personName(updated.payerDiscordId, updated.payerIgn);
+  const receiver = personName(updated.receiverDiscordId, updated.receiverIgn);
+  // Whoever started the tracker gets pinged too, unless they're already named above.
+  const starter = [updated.payerDiscordId, updated.receiverDiscordId].includes(updated.createdBy)
+    ? ''
+    : ` (<@${updated.createdBy}>)`;
   if (status === 'paid' && !resolvedBy) {
     await notify(
       updated,
-      `Payment complete: <@${updated.payerDiscordId}> paid <@${updated.receiverDiscordId}> ${payments.moneyWithShort(updated.amount)}.`,
+      `Payment complete: ${payer} paid ${receiver} ${payments.moneyWithShort(updated.amount)}.${starter}`,
       who
     );
   } else if (status === 'expired') {
     await notify(
       updated,
-      `Time's up: <@${updated.payerDiscordId}> didn't pay <@${updated.receiverDiscordId}> the full ${payments.moneyWithShort(updated.amount)} in time (${payments.money(updated.progress)} went through).`,
+      `Time's up: ${payer} didn't pay ${receiver} the full ${payments.moneyWithShort(updated.amount)} in time (${payments.money(updated.progress)} went through).${starter}`,
       who
     );
   }
