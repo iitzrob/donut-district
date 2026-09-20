@@ -136,6 +136,24 @@ module.exports = {
     },
   },
 
+  // ---- Levels ----
+  // - channelId: where "<user> has reached level N" messages get posted.
+  // - maxLevel: XP stops at this level (no more level-up messages after it).
+  // - xpMin / xpMax: XP given per message (random in this range), at most
+  //   once every cooldownSeconds per person. 15-40 XP with a 60 second
+  //   cooldown are Arcane's defaults.
+  // - xpChannelIds: leave [] so messages in every channel count, or list
+  //   channel ids to ONLY count messages in those channels.
+  // Chatting inside ticket channels never earns XP.
+  levels: {
+    channelId: '1550910954072576080',
+    maxLevel: 500,
+    xpMin: 15,
+    xpMax: 40,
+    cooldownSeconds: 60,
+    xpChannelIds: [],
+  },
+
   // Timezone for the weekly points reset (Monday 1:00 AM).
   timezone: 'Europe/Berlin',
 };
