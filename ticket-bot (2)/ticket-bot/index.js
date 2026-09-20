@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, Partials, Collection, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Collection, Events, ChannelType } = require('discord.js');
 const cron = require('node-cron');
 
 const config = require('./config');
@@ -50,8 +50,47 @@ for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith('.js'))
   client.commands.set(command.data.name, command);
 }
 
-client.once(Events.ClientReady, (c) => {
+// Checks every category id in config.js against the server the bot is in and
+// prints a warning naming the exact setting if one is wrong. A bad id is what
+// causes "parent_id[CHANNEL_PARENT_INVALID]: Category does not exist" when
+// someone opens a ticket. Empty ('') ids are skipped on purpose — those
+// tickets are just created without a category.
+async function checkConfiguredCategories(c) {
+  const guild = await c.guilds.fetch(config.guildId).catch(() => null);
+  if (!guild) {
+    console.warn(`[config check] The bot isn't in the server GUILD_ID=${config.guildId}.`);
+    return;
+  }
+
+  const channels = await guild.channels.fetch().catch(() => null);
+  if (!channels) return;
+
+  const toCheck = [];
+  for (const [key, v] of Object.entries(config.ticketCategories || {})) {
+    toCheck.push([`ticketCategories.${key}.categoryId`, v.categoryId]);
+  }
+  for (const [key, v] of Object.entries(config.applicationCategories || {})) {
+    toCheck.push([`applicationCategories.${key}.ticketCategoryId`, v.ticketCategoryId]);
+  }
+
+  let problems = 0;
+  for (const [label, id] of toCheck) {
+    if (!id) continue;
+    const channel = channels.get(id);
+    if (!channel) {
+      problems++;
+      console.warn(`[config check] ${label} = "${id}" — no channel with that id exists in "${guild.name}".`);
+    } else if (channel.type !== ChannelType.GuildCategory) {
+      problems++;
+      console.warn(`[config check] ${label} = "${id}" — that's the channel #${channel.name}, not a category.`);
+    }
+  }
+  if (!problems) console.log('[config check] All category ids in config.js look good.');
+}
+
+client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
+  await checkConfiguredCategories(c).catch((err) => console.error('[config check] failed:', err));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
