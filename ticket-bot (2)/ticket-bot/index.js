@@ -8,6 +8,9 @@ const config = require('./config');
 const points = require('./utils/points');
 const {
   closeChannel,
+  requestClose,
+  handleCloseAgree,
+  handleCloseDisagree,
   claimTicket,
   unclaimTicket,
   handleRenameButton,
@@ -65,6 +68,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       if (interaction.customId === 'ticket_close_btn') {
         return await closeChannel(interaction);
+      }
+      if (interaction.customId === 'ticket_request_close_btn') {
+        return await requestClose(interaction);
+      }
+      if (interaction.customId.startsWith('ticket_close_agree:')) {
+        return await handleCloseAgree(interaction);
+      }
+      if (interaction.customId.startsWith('ticket_close_disagree:')) {
+        return await handleCloseDisagree(interaction);
       }
       if (interaction.customId === 'ticket_claim_btn') {
         return await claimTicket(interaction);
