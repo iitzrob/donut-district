@@ -19,6 +19,7 @@ const {
 const { handleTicketOpen } = require('./handlers/ticketHandlers');
 const { handleLevelMessage } = require('./handlers/levelHandlers');
 const levels = require('./utils/levels');
+const { handleMemberAdd, handleMemberRemove, cacheAllMembers } = require('./handlers/stickyRoles');
 const {
   handleApplicationSelect,
   handleApplicationAccept,
@@ -122,6 +123,21 @@ client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
   await checkConfiguredCategories(c).catch((err) => console.error('[config check] failed:', err));
   await checkLevelRoles(c).catch((err) => console.error('[config check] failed:', err));
+  await cacheAllMembers(c).catch((err) => console.error('[sticky roles] failed to load members:', err));
+});
+
+// Sticky roles: save a member's roles when they leave, give them back if they rejoin.
+client.on(Events.GuildMemberRemove, (member) => {
+  try {
+    handleMemberRemove(member);
+  } catch (err) {
+    console.error('[sticky roles] Error saving roles on leave:', err);
+  }
+});
+client.on(Events.GuildMemberAdd, (member) => {
+  handleMemberAdd(member).catch((err) =>
+    console.error(`[sticky roles] Couldn't restore roles for ${member.user.tag}:`, err.message)
+  );
 });
 
 // Levels: every message can earn XP (see utils/levels.js for the rules).
