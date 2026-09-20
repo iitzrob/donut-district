@@ -17,6 +17,7 @@ const {
   handleRenameModalSubmit,
 } = require('./utils/ticketActions');
 const { handleTicketOpen } = require('./handlers/ticketHandlers');
+const { handleLevelMessage } = require('./handlers/levelHandlers');
 const {
   handleApplicationSelect,
   handleApplicationAccept,
@@ -91,6 +92,11 @@ async function checkConfiguredCategories(c) {
 client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
   await checkConfiguredCategories(c).catch((err) => console.error('[config check] failed:', err));
+});
+
+// Levels: every message can earn XP (see utils/levels.js for the rules).
+client.on(Events.MessageCreate, (message) => {
+  handleLevelMessage(message).catch((err) => console.error('[levels] Error handling message:', err));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
