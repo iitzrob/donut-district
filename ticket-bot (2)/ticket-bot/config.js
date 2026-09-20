@@ -221,8 +221,8 @@ module.exports = {
   // There's also a Mark as Paid button on every tracker for the times the
   // balances can't prove it (e.g. the payer was earning money at the same time).
   payments: {
-    statsChannelId: '',
-    statsBotId: '',
+    statsChannelId: '1551189729909809154',
+    statsBotId: '1434180033693618417',
     statsCommand: '!stats',
     replyTimeoutSeconds: 20,
     deleteMessages: true,
