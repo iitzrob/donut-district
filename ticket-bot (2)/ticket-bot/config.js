@@ -222,7 +222,7 @@ module.exports = {
   // balances can't prove it (e.g. the payer was earning money at the same time).
   payments: {
     statsChannelId: '1551189729909809154',
-    statsBotId: '1434180033693618417',
+    statsBotId: '1321520416677695559',
     statsCommand: '!stats',
     replyTimeoutSeconds: 20,
     deleteMessages: true,
