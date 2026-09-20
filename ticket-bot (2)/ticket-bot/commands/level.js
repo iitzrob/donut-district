@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const levels = require('../utils/levels');
 
 const PER_PAGE = 10;
@@ -27,7 +27,7 @@ module.exports = {
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
 
-    // Plain text only. Mentions show the person's name without pinging them.
+    // Mentions show the person's name without pinging them.
     const noPings = { parse: [] };
 
     if (sub === 'rank') {
@@ -46,7 +46,8 @@ module.exports = {
       return interaction.reply({ content: `${first}\n${second}`, allowedMentions: noPings });
     }
 
-    // /level leaderboard
+    // /level leaderboard — an embed like "1. @user -- 12". Mentions inside an
+    // embed show the person's name but never ping them.
     const ranked = levels.getRanked();
     if (!ranked.length) {
       return interaction.reply({ content: 'Nobody has earned any XP yet.' });
@@ -58,17 +59,15 @@ module.exports = {
 
     const lines = ranked
       .slice(start, start + PER_PAGE)
-      .map(
-        (entry, i) =>
-          `**#${start + i + 1}** <@${entry.userId}> — Level **${levels.levelFromXp(entry.xp)}** · ${fmt(entry.xp)} XP`
-      );
+      .map((entry, i) => `**${start + i + 1}.** <@${entry.userId}> -- **${levels.levelFromXp(entry.xp)}**`);
 
     const yourRank = levels.getRank(interaction.user.id);
-    const footer = `Page ${page}/${pages}${yourRank ? ` · Your rank: #${yourRank}` : ''}`;
+    const embed = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle('Level Leaderboard')
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page}/${pages}${yourRank ? ` · Your rank: #${yourRank}` : ''}` });
 
-    await interaction.reply({
-      content: `**Level Leaderboard**\n${lines.join('\n')}\n${footer}`,
-      allowedMentions: noPings,
-    });
+    await interaction.reply({ embeds: [embed], allowedMentions: noPings });
   },
 };
