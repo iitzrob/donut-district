@@ -31,6 +31,7 @@ const {
   handleApplicationOpenTicket,
 } = require('./handlers/applicationHandlers');
 const { handleLeaderboardRoleSelect } = require('./handlers/leaderboardHandlers');
+const { startPaymentTracker, handlePaymentButton } = require('./handlers/paymentHandlers');
 
 const client = new Client({
   intents: [
@@ -124,6 +125,8 @@ client.once(Events.ClientReady, async (c) => {
   await checkConfiguredCategories(c).catch((err) => console.error('[config check] failed:', err));
   await checkLevelRoles(c).catch((err) => console.error('[config check] failed:', err));
   await cacheAllMembers(c).catch((err) => console.error('[sticky roles] failed to load members:', err));
+  // Payment tracker: picks up any payments still being tracked from before a restart.
+  startPaymentTracker(c);
 });
 
 // Sticky roles: save a member's roles when they leave, give them back if they rejoin.
@@ -195,6 +198,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       if (interaction.customId.startsWith('application_open_ticket:')) {
         return await handleApplicationOpenTicket(interaction);
+      }
+      // Buttons on a /track payment message (Mark as Paid / Cancel).
+      if (interaction.customId.startsWith('payment_')) {
+        return await handlePaymentButton(interaction);
       }
       // application_yes / application_no / application_cancel buttons are
       // consumed directly by the awaitMessageComponent collectors inside
