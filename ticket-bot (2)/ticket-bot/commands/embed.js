@@ -1,9 +1,9 @@
-const { SlashCommandBuilder, ChannelType, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ChannelType, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { isBypassRole } = require('../utils/permissions');
 const { resolveEmojiShortcodes } = require('../utils/parseEmoji');
 
 // /embed — posts a custom embed anywhere. Restricted to config.alwaysCanTypeRoleId
-// only (not staff, not Administrator) — see utils/permissions.js#isBypassRole.
+// (see utils/permissions.js#isBypassRole) or anyone with Administrator.
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('embed')
@@ -34,7 +34,8 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    if (!isBypassRole(interaction.member)) {
+    const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+    if (!isAdmin && !isBypassRole(interaction.member)) {
       return interaction.reply({ content: 'You do not have permission to use this.', ephemeral: true });
     }
 
