@@ -49,9 +49,24 @@ async function closeChannel(interaction) {
 
   await interaction.reply({ embeds: [systemEmbed('🔒 Closing ticket, making a transcript...')] });
 
+  await finishClose(
+    interaction,
+    meta,
+    `Ticket **#${interaction.channel.name}** closed by ${interaction.user} (opened by <@${meta.openerId}>).`
+  );
+}
+
+// The actual closing work — transcript, DM to the opener, log message, then
+// deleting the channel. Shared by the Close Ticket button / /ticket-close and
+// by the "Agree" button on a close request. The caller is responsible for
+// having already told the channel it's closing (reply / followUp) and for
+// any permission checks.
+async function finishClose(interaction, meta, logText) {
+  const channel = interaction.channel;
+
   let transcript;
   try {
-    transcript = await buildTranscript(interaction.channel);
+    transcript = await buildTranscript(channel);
   } catch (err) {
     console.error('Failed to build transcript:', err);
   }
@@ -63,7 +78,7 @@ async function closeChannel(interaction) {
         .setTitle('🔒 Ticket Closed')
         .setDescription(
           `Hello **${opener.username}**,\n\n` +
-            `Your ticket (\`${interaction.channel.name}\`) has been closed.\n` +
+            `Your ticket (\`${channel.name}\`) has been closed.\n` +
             `A full transcript of your ticket conversation is attached below.`
         )
         .setColor(0x2b2d31)
@@ -75,17 +90,105 @@ async function closeChannel(interaction) {
   }
 
   if (config.ticketLogChannelId) {
-    await logToChannel(
-      interaction,
-      `Ticket **#${interaction.channel.name}** closed by ${interaction.user} (opened by <@${meta.openerId}>).`
-    );
+    await logToChannel(interaction, logText);
   }
 
-  ticketStore.remove(interaction.channel.id);
+  ticketStore.remove(channel.id);
 
   setTimeout(() => {
-    interaction.channel.delete().catch(() => {});
+    channel.delete().catch(() => {});
   }, 5000);
+}
+
+// ---- Request Close ----
+// Staff press "Request Close" on a ticket. The bot pings the ticket opener
+// with an embed asking whether they agree, with green Agree / red Disagree
+// buttons. Only the opener can answer. Agree closes the ticket exactly like
+// Close Ticket does; Disagree just dismisses the request. The requester's id
+// is stored in the button ids (ticket_close_agree:<id>), so this survives bot
+// restarts and nothing extra has to be saved.
+
+// Channels whose close is already in progress from an Agree click, so a
+// double-click can't start two closes.
+const closing = new Set();
+
+async function requestClose(interaction) {
+  if (!isStaff(interaction.member)) {
+    return interaction.reply({ content: 'Only staff can request to close this.', ephemeral: true });
+  }
+
+  const meta = ticketStore.get(interaction.channel.id);
+  if (!meta || !meta.openerId) {
+    return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
+  }
+
+  const embed = new EmbedBuilder()
+    .setDescription(`<@${meta.openerId}>, ${interaction.user} requested to close this ticket. Do you agree?`)
+    .setColor(0x2b2d31);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`ticket_close_agree:${interaction.user.id}`)
+      .setLabel('Agree')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`ticket_close_disagree:${interaction.user.id}`)
+      .setLabel('Disagree')
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  // The ping goes in the message content — mentions inside an embed show the
+  // name but don't notify anyone.
+  await interaction.reply({
+    content: `<@${meta.openerId}>`,
+    embeds: [embed],
+    components: [row],
+  });
+}
+
+async function handleCloseAgree(interaction) {
+  const meta = ticketStore.get(interaction.channel.id);
+  if (!meta) {
+    return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
+  }
+  if (interaction.user.id !== meta.openerId) {
+    return interaction.reply({ content: `Only <@${meta.openerId}> can respond to this.`, ephemeral: true });
+  }
+  if (closing.has(interaction.channel.id)) {
+    return interaction.reply({ content: 'This ticket is already closing.', ephemeral: true });
+  }
+  closing.add(interaction.channel.id);
+
+  const requesterId = interaction.customId.split(':')[1];
+
+  await interaction.update({
+    embeds: [systemEmbed(`${interaction.user} agreed to close this ticket.`)],
+    components: [],
+  });
+  await interaction.followUp({ embeds: [systemEmbed('🔒 Closing ticket, making a transcript...')] });
+
+  await finishClose(
+    interaction,
+    meta,
+    `Ticket **#${interaction.channel.name}** closed by <@${requesterId}> after <@${meta.openerId}> agreed to the close request.`
+  );
+}
+
+async function handleCloseDisagree(interaction) {
+  const meta = ticketStore.get(interaction.channel.id);
+  if (!meta) {
+    return interaction.reply({ content: 'This is not a ticket or application channel.', ephemeral: true });
+  }
+  if (interaction.user.id !== meta.openerId) {
+    return interaction.reply({ content: `Only <@${meta.openerId}> can respond to this.`, ephemeral: true });
+  }
+
+  const requesterId = interaction.customId.split(':')[1];
+
+  await interaction.update({
+    embeds: [systemEmbed(`${interaction.user} declined the request from <@${requesterId}> to close this ticket.`)],
+    components: [],
+  });
 }
 
 async function renameChannel(interaction, newName) {
@@ -125,26 +228,40 @@ function withoutFooter(embed) {
   return EmbedBuilder.from(data);
 }
 
-// Button rows shown on a ticket message. Claim Ticket is green (Success),
-// Rename Ticket is blurple (Primary), Close Ticket is red (Danger) with a
-// lock emoji. Claim Ticket flips to Unclaim Ticket (grey) once claimed.
+// Button rows shown on a ticket message — no emojis on any of them. Claim
+// Ticket is green (Success), Rename Ticket is blurple (Primary), Request
+// Close is grey (Secondary) and Close Ticket is red (Danger). Claim Ticket
+// flips to Unclaim Ticket (grey) once claimed.
+function renameButton() {
+  return new ButtonBuilder()
+    .setCustomId('ticket_rename_btn')
+    .setLabel('Rename Ticket')
+    .setStyle(ButtonStyle.Primary);
+}
+
+function requestCloseButton() {
+  return new ButtonBuilder()
+    .setCustomId('ticket_request_close_btn')
+    .setLabel('Request Close')
+    .setStyle(ButtonStyle.Secondary);
+}
+
+function closeButton() {
+  return new ButtonBuilder()
+    .setCustomId('ticket_close_btn')
+    .setLabel('Close Ticket')
+    .setStyle(ButtonStyle.Danger);
+}
+
 function claimedRow() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('ticket_unclaim_btn')
       .setLabel('Unclaim Ticket')
-      .setEmoji('✋')
       .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('ticket_rename_btn')
-      .setLabel('Rename Ticket')
-      .setEmoji('✏️')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('ticket_close_btn')
-      .setLabel('Close Ticket')
-      .setEmoji('🔒')
-      .setStyle(ButtonStyle.Danger)
+    renameButton(),
+    requestCloseButton(),
+    closeButton()
   );
 }
 
@@ -153,19 +270,16 @@ function unclaimedRow() {
     new ButtonBuilder()
       .setCustomId('ticket_claim_btn')
       .setLabel('Claim Ticket')
-      .setEmoji('✋')
       .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId('ticket_rename_btn')
-      .setLabel('Rename Ticket')
-      .setEmoji('✏️')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('ticket_close_btn')
-      .setLabel('Close Ticket')
-      .setEmoji('🔒')
-      .setStyle(ButtonStyle.Danger)
+    renameButton(),
+    requestCloseButton(),
+    closeButton()
   );
+}
+
+// Application tickets have no Claim button (it's not a support ticket).
+function noClaimRow() {
+  return new ActionRowBuilder().addComponents(renameButton(), requestCloseButton(), closeButton());
 }
 
 // Claiming a ticket locks SendMessages on every role that normally has
@@ -326,6 +440,9 @@ async function addUserToTicket(interaction, user) {
 
 module.exports = {
   closeChannel,
+  requestClose,
+  handleCloseAgree,
+  handleCloseDisagree,
   renameChannel,
   claimTicket,
   unclaimTicket,
@@ -334,4 +451,5 @@ module.exports = {
   addUserToTicket,
   claimedRow,
   unclaimedRow,
+  noClaimRow,
 };
