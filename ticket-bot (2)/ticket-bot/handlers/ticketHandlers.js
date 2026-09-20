@@ -102,7 +102,10 @@ async function handleTicketOpen(interaction) {
       roleIds: [config.staffRoleId, pingRoleId, config.alwaysCanTypeRoleId],
     }));
   } catch (err) {
-    console.error('Failed to create ticket channel:', err);
+    console.error(
+      `Failed to create ticket channel for "${categoryId}" (config.ticketCategories.${categoryId}.categoryId = "${catCfg.categoryId}"):`,
+      err
+    );
     return modalInteraction.editReply({
       content: `Something went wrong creating your ticket channel. Please tell staff.\n\`\`\`${err.message}\`\`\``,
     });
