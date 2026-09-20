@@ -18,6 +18,7 @@ const {
 } = require('./utils/ticketActions');
 const { handleTicketOpen } = require('./handlers/ticketHandlers');
 const { handleLevelMessage } = require('./handlers/levelHandlers');
+const levels = require('./utils/levels');
 const {
   handleApplicationSelect,
   handleApplicationAccept,
@@ -89,9 +90,38 @@ async function checkConfiguredCategories(c) {
   if (!problems) console.log('[config check] All category ids in config.js look good.');
 }
 
+// Same idea for the level role rewards: warns about any role id that doesn't
+// exist, or that the bot can't hand out (its own role has to sit above them
+// and it needs Manage Roles) — the usual reason role rewards silently fail.
+async function checkLevelRoles(c) {
+  const rewards = levels.getRoleRewards();
+  if (!rewards.length) return;
+
+  const guild = await c.guilds.fetch(config.guildId).catch(() => null);
+  if (!guild) return;
+  const roles = await guild.roles.fetch().catch(() => null);
+  if (!roles) return;
+
+  let problems = 0;
+  for (const { level, roleId } of rewards) {
+    const role = roles.get(roleId);
+    if (!role) {
+      problems++;
+      console.warn(`[config check] levels.roleRewards[${level}] = "${roleId}" — no role with that id exists in "${guild.name}".`);
+    } else if (!role.editable) {
+      problems++;
+      console.warn(
+        `[config check] levels.roleRewards[${level}] — the bot can't give out @${role.name}. Move the bot's role above it in Server Settings > Roles and make sure the bot has Manage Roles.`
+      );
+    }
+  }
+  if (!problems) console.log('[config check] All level role rewards look good.');
+}
+
 client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
   await checkConfiguredCategories(c).catch((err) => console.error('[config check] failed:', err));
+  await checkLevelRoles(c).catch((err) => console.error('[config check] failed:', err));
 });
 
 // Levels: every message can earn XP (see utils/levels.js for the rules).
