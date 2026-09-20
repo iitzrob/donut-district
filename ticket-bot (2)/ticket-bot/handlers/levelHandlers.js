@@ -2,6 +2,29 @@ const levels = require('../utils/levels');
 const ticketStore = require('../utils/ticketStore');
 const config = require('../config');
 
+// Gives `member` the reward role(s) for `level`. Called on every level-up, and
+// it looks at everything up to their level, so anyone who is missing a role
+// (e.g. they leveled before the rewards were set up) gets it on their next
+// level-up. Throws if Discord refuses — the caller logs it.
+async function applyRoleRewards(member, level) {
+  const { earned, highest, all } = levels.rolesForLevel(level);
+  if (!earned.length) return;
+
+  const has = (roleId) => member.roles.cache.has(roleId);
+  let toAdd;
+  let toRemove = [];
+
+  if (levels.cfg.stackRoleRewards) {
+    toAdd = earned.filter((roleId) => !has(roleId));
+  } else {
+    toAdd = has(highest) ? [] : [highest];
+    toRemove = all.filter((roleId) => roleId !== highest && has(roleId));
+  }
+
+  if (toAdd.length) await member.roles.add(toAdd, `Reached level ${level}`);
+  if (toRemove.length) await member.roles.remove(toRemove, `Replaced by a higher level reward (level ${level})`);
+}
+
 // Runs on every message. Gives the author XP (once per cooldown) and, if that
 // levels them up, posts the announcement in the level-up channel.
 async function handleLevelMessage(message) {
@@ -23,6 +46,23 @@ async function handleLevelMessage(message) {
   const result = levels.grantMessageXp(message.author.id);
   if (!result) return;
 
+  await announceLevelUp(message, result.level).catch((err) =>
+    console.error('[levels] Failed to send the level-up message:', err)
+  );
+
+  // Role rewards. A failure here (missing permission, role above the bot) is
+  // only logged — it never stops the announcement or XP.
+  try {
+    const member = message.member || (await message.guild.members.fetch(message.author.id));
+    await applyRoleRewards(member, result.level);
+  } catch (err) {
+    console.error(`[levels] Couldn't give the level ${result.level} role reward to ${message.author.tag}:`, err.message);
+  }
+}
+
+async function announceLevelUp(message, level) {
+  const { cfg } = levels;
+
   if (!cfg.channelId) {
     console.warn('[levels] config.levels.channelId is empty, so level-up messages are not being sent.');
     return;
@@ -35,9 +75,9 @@ async function handleLevelMessage(message) {
   }
 
   await channel.send({
-    content: `${message.author} has reached level **${result.level}**. Keep up the grind!!`,
+    content: `${message.author} has reached level **${level}**. Keep up the grind!!`,
     allowedMentions: { users: [message.author.id] },
   });
 }
 
-module.exports = { handleLevelMessage };
+module.exports = { handleLevelMessage, applyRoleRewards };
