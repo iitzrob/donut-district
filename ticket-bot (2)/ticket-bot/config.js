@@ -19,23 +19,23 @@ module.exports = {
   // The buttons themselves (labels + emoji) still come from
   // data/ticketCategories.js, this is just the description text above them.
   ticketPanelDescription:
-`<:Emojis_48x48_119:1551135078850101258> **Support**
+`<:63756redticket:1549053777854726246> **Support**
 
 > Open this if you want help or assistance with anything.
 
-<:Emojis_48x48_69:1551134697818689626> **Staff Report**
+<:3392reportmessage:1549053747630710885> **Staff Report**
 
 > Open this if a staff / builder did something wrong.
 
- <:Emojis_48x48_56:1551134787018690641> **Buy/Sell Spawner**
+ <:Spawner2342342:1533798050164637837> **Buy/Sell Spawner**
 
 > Open this if you want to buy/sell spawners.
 
-<:Emojis_48x48_84:1551134551135359006> **Giveaway Claim**
+<a:3899gift:1537021187450871859> **Giveaway Claim**
 
 > Open this to claim a giveaway you won.
 
-<:Emojis_48x48_115:1551135209976762379> **Giveaway Sponsor**
+ <a:3899gift:1537021187450871859> **Giveaway Sponsor**
 
 > Open this if you want to sponsor a giveaway.`,
 
@@ -55,26 +55,58 @@ module.exports = {
   // and ping its own role. Leave pingRoleId as '' to only ping staffRoleId.
   ticketCategories: {
     support: {
-      categoryId: '1551135988309561434',
-      pingRoleId: '1551080886689075230',
+      categoryId: '1534029665382170814',
+      pingRoleId: '1534029589569998888',
     },
     staff_report: {
-      categoryId: '1551136069196718131',
-      pingRoleId: '1551080886689075230',
+      categoryId: '1534029678682181703',
+      pingRoleId: '1534029589569998888',
     },
     buy_sell_spawner: {
-      categoryId: '1551136194887426088',
-      pingRoleId: '1551080886689075230',
+      categoryId: '1534029675804889108',
+      pingRoleId: '1534029589569998888',
     },
     giveaway_claim: {
-      categoryId: '1551136268794990673',
-      pingRoleId: '1551080886689075230',
+      categoryId: 'PUT_GIVEAWAY_CLAIM_CATEGORY_ID_HERE',
+      pingRoleId: '1534029589569998888',
     },
     giveaway_sponsor: {
-      categoryId: '1551136370645278791',
-      pingRoleId: '1551080886689075230',
+      categoryId: '1534029672407367690',
+      pingRoleId: '1534029589569998888',
+    },
+
+    // ---- Services panel (/service-panel) ----
+    // Keys match the `id` values in data/serviceCategories.js.
+    // - emoji: shown on the button AND next to the name in the panel embed.
+    //   Normal emojis always show; custom server emojis only show in the
+    //   embed text if the bot is in the server that owns them.
+    // - categoryId: paste the Discord category for each service here. While
+    //   it's '' the ticket channels are created with no category.
+    // - pingRoleId: every service ticket pings this one role.
+    build: {
+      emoji: '🏗️',
+      categoryId: '1551156453174411385',
+      pingRoleId: '1551156628588601376',
+    },
+    dig: {
+      emoji: '⛏️',
+      categoryId: '1551156867609399307',
+      pingRoleId: '1551156628588601376',
+    },
+    mapart: {
+      emoji: '🗺️',
+      categoryId: '1551157306614611988',
+      pingRoleId: '1551156628588601376',
+    },
+    regears: {
+      emoji: '🛡️',
+      categoryId: '1551157453431771216',
+      pingRoleId: '1551156628588601376',
     },
   },
+
+  // Title of the embed posted by /service-panel.
+  servicePanelTitle: "Donut District's DonutSMP Services",
 
   // Per-application-type settings. Keys must match the keys in
   // data/applicationQuestions.js (staff_helper, builder).
@@ -91,16 +123,16 @@ module.exports = {
   //   to pull the applicant into a channel before deciding)
   applicationCategories: {
     staff_helper: {
-      reviewChannelId: '1551137479820836905',
-      pingRoleId: '1551079473049374744',
-      acceptedRoleId: '1551080887305642014',
-      ticketCategoryId: '1551137757571584193',
+      reviewChannelId: '1534029928683798640',
+      pingRoleId: '1534029586231332986',
+      acceptedRoleId: '1535942602258522132',
+      ticketCategoryId: '1534029715382210560',
     },
     builder: {
-      reviewChannelId: '1551137479820836905',
-      pingRoleId: '1551079638665535548',
-      acceptedRoleId: '1551080887842770956',
-      ticketCategoryId: '1551137842363895818',
+      reviewChannelId: '1534029932563529828',
+      pingRoleId: '1534029586231332986',
+      acceptedRoleId: '1535942667375087639',
+      ticketCategoryId: '1534029711917842472',
     },
   },
 
