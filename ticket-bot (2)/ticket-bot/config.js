@@ -176,6 +176,16 @@ module.exports = {
     stackRoleRewards: true,
   },
 
+  // ---- Sticky roles ----
+  // When someone leaves and rejoins, the bot gives back the roles they had.
+  // - enabled: set to false to turn this off.
+  // - ignoreRoleIds: roles that should NOT come back (paste role ids, e.g. your
+  //   staff roles, if you'd rather hand those out again by hand).
+  stickyRoles: {
+    enabled: true,
+    ignoreRoleIds: [],
+  },
+
   // Timezone for the weekly points reset (Monday 1:00 AM).
   timezone: 'Europe/Berlin',
 };
