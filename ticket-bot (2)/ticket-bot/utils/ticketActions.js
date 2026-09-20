@@ -89,8 +89,9 @@ async function finishClose(interaction, meta, logText) {
     }
   }
 
+  // Also post the transcript in the log channel (skipped if it couldn't be built).
   if (config.ticketLogChannelId) {
-    await logToChannel(interaction, logText);
+    await logToChannel(interaction, logText, transcript ? [transcript] : undefined);
   }
 
   ticketStore.remove(channel.id);
