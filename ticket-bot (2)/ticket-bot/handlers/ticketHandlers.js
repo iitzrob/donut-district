@@ -7,7 +7,12 @@ const {
 } = require('discord.js');
 const config = require('../config');
 const ticketStore = require('../utils/ticketStore');
-const categories = require('../data/ticketCategories');
+// Both panels open tickets through this same handler, so look up the pressed
+// button's category in both lists.
+const categories = [
+  ...require('../data/ticketCategories'),
+  ...require('../data/serviceCategories'),
+];
 const { createPrivateChannel } = require('../utils/ticketCreation');
 const { unclaimedRow } = require('../utils/ticketActions');
 
@@ -17,7 +22,13 @@ const MODAL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes to fill out the form
 // the user to submit it. Returns { modalInteraction, answers } on success,
 // or null if they closed the form / it timed out (nothing left to do then).
 async function collectAnswers(interaction, categoryDef) {
-  const questions = categoryDef.questions || [];
+  // A question is either a plain string, or an object:
+  //   { label: 'What is your budget?', placeholder: "Don't low ball!!", short: true }
+  // `placeholder` is the grey hint text inside the box; `short: true` makes it
+  // a one-line box instead of a big paragraph box.
+  const questions = (categoryDef.questions || []).map((q) =>
+    typeof q === 'string' ? { label: q } : q
+  );
   if (!questions.length) {
     return { modalInteraction: interaction, answers: [] };
   }
@@ -29,10 +40,11 @@ async function collectAnswers(interaction, categoryDef) {
   questions.forEach((question, i) => {
     const input = new TextInputBuilder()
       .setCustomId(`q${i}`)
-      .setLabel(question.slice(0, 45))
-      .setStyle(TextInputStyle.Paragraph)
+      .setLabel(question.label.slice(0, 45))
+      .setStyle(question.short ? TextInputStyle.Short : TextInputStyle.Paragraph)
       .setRequired(true)
       .setMaxLength(1000);
+    if (question.placeholder) input.setPlaceholder(question.placeholder.slice(0, 100));
     modal.addComponents(new ActionRowBuilder().addComponents(input));
   });
 
@@ -48,7 +60,7 @@ async function collectAnswers(interaction, categoryDef) {
   if (!modalInteraction) return null;
 
   const answers = questions.map((question, i) => ({
-    question,
+    question: question.label,
     answer: modalInteraction.fields.getTextInputValue(`q${i}`),
   }));
 
