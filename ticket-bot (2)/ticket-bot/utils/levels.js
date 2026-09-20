@@ -11,6 +11,8 @@ const cfg = {
   xpMax: 40,
   cooldownSeconds: 60,
   xpChannelIds: [],
+  roleRewards: {},
+  stackRoleRewards: false,
   ...(config.levels || {}),
 };
 
@@ -124,6 +126,30 @@ function grantMessageXp(userId) {
   return after > before ? { level: after } : null;
 }
 
+// ---- Role rewards ----
+// The configured rewards as [{ level, roleId }], lowest level first. Levels
+// with an empty role id are skipped.
+function getRoleRewards() {
+  return Object.entries(cfg.roleRewards || {})
+    .filter(([, roleId]) => roleId)
+    .map(([level, roleId]) => ({ level: Number(level), roleId }))
+    .sort((a, b) => a.level - b.level);
+}
+
+// What someone at `level` is entitled to:
+//   earned  - every reward role for levels up to theirs
+//   highest - the role for the highest reward level they've reached
+//   all     - every configured reward role (used to remove the lower ones)
+function rolesForLevel(level) {
+  const rewards = getRoleRewards();
+  const earned = [...new Set(rewards.filter((r) => r.level <= level).map((r) => r.roleId))];
+  return {
+    earned,
+    highest: earned.length ? earned[earned.length - 1] : null,
+    all: [...new Set(rewards.map((r) => r.roleId))],
+  };
+}
+
 // ---- Reading ----
 function getXp(userId) {
   return data[userId]?.xp || 0;
@@ -149,6 +175,8 @@ module.exports = {
   totalXpForLevel,
   levelFromXp,
   getProgress,
+  getRoleRewards,
+  rolesForLevel,
   offCooldown,
   grantMessageXp,
   getXp,
