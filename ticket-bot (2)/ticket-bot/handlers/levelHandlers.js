@@ -25,6 +25,29 @@ async function applyRoleRewards(member, level) {
   if (toRemove.length) await member.roles.remove(toRemove, `Replaced by a higher level reward (level ${level})`);
 }
 
+// Makes a member's reward roles match `level` in BOTH directions — used after
+// /xp-add and /xp-remove, so removing XP also takes away roles they no longer
+// qualify for. Throws if Discord refuses — the caller handles it.
+async function syncRoleRewards(member, level) {
+  const { earned, highest, all } = levels.rolesForLevel(level);
+  if (!all.length) return;
+
+  const has = (roleId) => member.roles.cache.has(roleId);
+  let toAdd;
+  let toRemove;
+
+  if (levels.cfg.stackRoleRewards) {
+    toAdd = earned.filter((roleId) => !has(roleId));
+    toRemove = all.filter((roleId) => !earned.includes(roleId) && has(roleId));
+  } else {
+    toAdd = highest && !has(highest) ? [highest] : [];
+    toRemove = all.filter((roleId) => roleId !== highest && has(roleId));
+  }
+
+  if (toAdd.length) await member.roles.add(toAdd, `Level set to ${level} by staff`);
+  if (toRemove.length) await member.roles.remove(toRemove, `Level set to ${level} by staff`);
+}
+
 // Runs on every message. Gives the author XP (once per cooldown) and, if that
 // levels them up, posts the announcement in the level-up channel.
 async function handleLevelMessage(message) {
@@ -80,4 +103,4 @@ async function announceLevelUp(message, level) {
   });
 }
 
-module.exports = { handleLevelMessage, applyRoleRewards };
+module.exports = { handleLevelMessage, applyRoleRewards, syncRoleRewards };
