@@ -11,7 +11,7 @@ async function handleAfkMessage(message) {
 
     const welcomeEmbed = new EmbedBuilder()
       .setColor(0x2b2d31)
-      .setDescription(`👋 Welcome back <@${message.author.id}>, we missed you!`);
+      .setDescription(` Welcome back <@${message.author.id}>, we missed you!`);
 
     await message.channel.send({ embeds: [welcomeEmbed] }).catch(() => {});
   }
