@@ -150,6 +150,54 @@ function rolesForLevel(level) {
   };
 }
 
+// ---- Staff adjustments ----
+// Used by /xp-add and /xp-remove. XP never goes below 0 or above the max level.
+function setXp(userId, xp) {
+  const before = getXp(userId);
+  const after = Math.max(0, Math.min(Math.floor(xp), totalXpForLevel(cfg.maxLevel)));
+  data[userId] = { ...(data[userId] || {}), xp: after };
+  scheduleSave();
+  return {
+    beforeXp: before,
+    afterXp: after,
+    beforeLevel: levelFromXp(before),
+    afterLevel: levelFromXp(after),
+  };
+}
+
+function addXp(userId, amount) {
+  return setXp(userId, getXp(userId) + amount);
+}
+
+function removeXp(userId, amount) {
+  return setXp(userId, getXp(userId) - amount);
+}
+
+// Moves someone up/down by whole levels and keeps their progress into the
+// level where possible (clamped so it can't spill into the next level).
+function shiftLevels(userId, delta) {
+  const xp = getXp(userId);
+  const level = levelFromXp(xp);
+  const target = Math.max(0, Math.min(cfg.maxLevel, level + delta));
+
+  let newXp;
+  if (target >= cfg.maxLevel) {
+    newXp = totalXpForLevel(cfg.maxLevel);
+  } else {
+    const into = xp - totalXpForLevel(level);
+    newXp = totalXpForLevel(target) + Math.min(into, xpToNext(target) - 1);
+  }
+  return setXp(userId, newXp);
+}
+
+function addLevels(userId, count) {
+  return shiftLevels(userId, count);
+}
+
+function removeLevels(userId, count) {
+  return shiftLevels(userId, -count);
+}
+
 // ---- Reading ----
 function getXp(userId) {
   return data[userId]?.xp || 0;
@@ -179,6 +227,10 @@ module.exports = {
   rolesForLevel,
   offCooldown,
   grantMessageXp,
+  addXp,
+  removeXp,
+  addLevels,
+  removeLevels,
   getXp,
   getRanked,
   getRank,
