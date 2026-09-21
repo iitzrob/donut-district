@@ -18,6 +18,7 @@ const {
 } = require('./utils/ticketActions');
 const { handleTicketOpen } = require('./handlers/ticketHandlers');
 const { handleLevelMessage } = require('./handlers/levelHandlers');
+const { handleAfkMessage } = require('./handlers/afkHandlers');
 const levels = require('./utils/levels');
 const { handleMemberAdd, handleMemberRemove, cacheAllMembers } = require('./handlers/stickyRoles');
 const {
@@ -146,6 +147,7 @@ client.on(Events.GuildMemberAdd, (member) => {
 // Levels: every message can earn XP (see utils/levels.js for the rules).
 client.on(Events.MessageCreate, (message) => {
   handleLevelMessage(message).catch((err) => console.error('[levels] Error handling message:', err));
+  handleAfkMessage(message).catch((err) => console.error('[afk] Error handling message:', err));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
