@@ -20,7 +20,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor(0x2b2d31)
-      .setDescription(`✅ Set your status to **AFK**: ${reason}`);
+      .setDescription(` Set your status to **AFK**: ${reason}`);
 
     return interaction.reply({ embeds: [embed] });
   },
