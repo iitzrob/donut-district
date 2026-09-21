@@ -1,15 +1,14 @@
-const { SlashCommandBuilder } = require('discord.js');
-const { isStaff } = require('../utils/permissions');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const levels = require('../utils/levels');
 const { syncRoleRewards } = require('../handlers/levelHandlers');
 
 const fmt = (n) => n.toLocaleString('en-US');
 
-// /xp-add <user> <amount> <type> — gives someone XP or whole levels (staff only).
+// /xp-add <user> <amount> <type> — gives someone XP or whole levels (admins only).
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('xp-add')
-    .setDescription('Add XP or levels to a user (staff only)')
+    .setDescription('Add XP or levels to a user (admins only)')
     .addUserOption((opt) =>
       opt.setName('user').setDescription('Who to give XP/levels to').setRequired(true)
     )
@@ -23,10 +22,11 @@ module.exports = {
         .setRequired(true)
         .addChoices({ name: 'XP', value: 'xp' }, { name: 'Level(s)', value: 'levels' })
     )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
 
   async execute(interaction) {
-    if (!isStaff(interaction.member)) {
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({ content: 'You do not have permission to use this.', ephemeral: true });
     }
 
